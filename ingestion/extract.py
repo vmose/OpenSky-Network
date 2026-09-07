@@ -79,14 +79,8 @@ if __name__ == "__main__":
         print("\n--- First 5 Active Flights ---")
         print(flight_df[["icao24", "callsign", "origin_country", "latitude", "longitude", "velocity"]].head())
 
-        # Save to CSV
-        utc_now = datetime.now(timezone.utc)
-        current_utc_time = utc_now.time()
-        output_file = "live_flights{utc_now}.csv"
-        flight_df.to_csv(output_file, index=False)
-        flight_df.to_parquet('live_flights{utc_now}.parquet')
-        print(f"\nData successfully saved to {output_file}")
-
-
-
-
+        # Save to CSV & Parquet with timestamped filenames
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        flight_df.to_csv(f"live_flights{timestamp}.csv", index=False)
+        flight_df.to_parquet(f'live_flights{timestamp}.parquet')
+        print(f"\nData successfully saved to 'live_flights{timestamp}.csv' and 'live_flights{timestamp}.parquet'.")
