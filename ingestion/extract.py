@@ -1,86 +1,107 @@
 import os
+import time
+import asyncio
+import logging
 import requests
 import pandas as pd
 from datetime import datetime, timezone
+from pathlib import Path
 
-# 1. API Configuration
-# Anonymous access is heavily rate-limited. Register a free account at opensky-network.org
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger("opensky_stream")
+
 OPENSKY_USER = os.getenv("OPENSKY_USER", "")
 OPENSKY_PASSWORD = os.getenv("OPENSKY_PASSWORD", "")
-
 API_URL = "https://opensky-network.org/api/states/all"
 
-# Optional: Define a bounding box to filter flights by location (e.g., Europe, Africa, Asia). If not set, all global flights will be fetched.   
-
-# Leave as None to fetch all active global flights (Warning: returns a massive payload)
 BOUNDING_BOX = {
-    "lamin": -35.0,   # Minimum latitude — southern Africa
-    "lomin": -20.0,   # Minimum longitude — western Africa/Atlantic
-    "lamax": 40.0,    # Maximum latitude — southern Europe / Central Asia
-    "lomax": 104.0    # Maximum longitude — Singapore / western Indonesia
+    "lamin": -35.0, "lomin": -20.0,
+    "lamax": 40.0, "lomax": 104.0,
 }
 
-def extract_live_flights():
-    """Fetches real-time state vectors from OpenSky Network API."""
-    params = {}
-    auth = None
+# Respect OpenSky's published limits: 5s authenticated / 10s anonymous for a bbox query.
+POLL_INTERVAL = 5 if (OPENSKY_USER and OPENSKY_PASSWORD) else 10
+MAX_BACKOFF = 60
 
-    # Apply bounding box constraints if defined
-    if BOUNDING_BOX:
-        params.update(BOUNDING_BOX)
+COLUMNS = [
+    "icao24", "callsign", "origin_country", "time_position", "last_contact",
+    "longitude", "latitude", "baro_altitude", "on_ground", "velocity",
+    "true_track", "vertical_rate", "sensors", "geo_altitude", "squawk",
+    "spi", "position_source",
+]
 
-    # Apply basic authentication if credentials are provided
-    if OPENSKY_USER and OPENSKY_PASSWORD:
-        auth = (OPENSKY_USER, OPENSKY_PASSWORD)
-        print(f"[{datetime.now()}] Fetching data using authenticated account: {OPENSKY_USER}...")
-    else:
-        print(f"[{datetime.now()}] Fetching data anonymously (Subject to strict rate limits)...")
+OUTPUT_ROOT = Path("live_flights_lake")
 
-    try:
-        response = requests.get(API_URL, params=params, auth=auth, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching data from OpenSky API: {e}")
-        return None
 
-    # 2. Parse JSON response
+def fetch_states(session: requests.Session) -> pd.DataFrame | None:
+    params = dict(BOUNDING_BOX) if BOUNDING_BOX else {}
+    auth = (OPENSKY_USER, OPENSKY_PASSWORD) if OPENSKY_USER and OPENSKY_PASSWORD else None
+
+    resp = session.get(API_URL, params=params, auth=auth, timeout=15)
+    resp.raise_for_status()
+    data = resp.json()
+
     states = data.get("states", [])
     if not states:
-        print("No flight vectors found for the given criteria.")
         return None
 
-    # OpenSky returns data as a list of lists. We must map them back to their defined keys.
-    columns = [
-        "icao24", "callsign", "origin_country", "time_position", "last_contact",
-        "longitude", "latitude", "baro_altitude", "on_ground", "velocity",
-        "true_track", "vertical_rate", "sensors", "geo_altitude", "squawk",
-        "spi", "position_source"
-    ]
-
-    df = pd.DataFrame(states, columns=columns)
-    
-    # Clean up formatting: strip empty spaces from callsigns
+    df = pd.DataFrame(states, columns=COLUMNS)
     df["callsign"] = df["callsign"].str.strip()
-    
-    # Convert epoch timestamps to human-readable times
-    df["time_position"] = pd.to_datetime(df["time_position"], unit="s", errors="coerce")
-    df["last_contact"] = pd.to_datetime(df["last_contact"], unit="s", errors="coerce")
-
-    print(f"Successfully extracted {len(df)} active flights.")
+    df["time_position"] = pd.to_datetime(df["time_position"], unit="s", errors="coerce", utc=True)
+    df["last_contact"] = pd.to_datetime(df["last_contact"], unit="s", errors="coerce", utc=True)
+    df["ingested_at"] = datetime.now(timezone.utc)
     return df
 
+
+def write_partition(df: pd.DataFrame) -> None:
+    """Append this cycle's batch to an hour-partitioned Parquet dataset."""
+    now = datetime.now(timezone.utc)
+    partition = OUTPUT_ROOT / f"year={now:%Y}" / f"month={now:%m}" / f"day={now:%d}" / f"hour={now:%H}"
+    partition.mkdir(parents=True, exist_ok=True)
+    fname = partition / f"batch_{now:%Y%m%dT%H%M%S}.parquet"
+    df.to_parquet(fname, index=False)
+
+
+async def poll_loop():
+    session = requests.Session()
+    backoff = POLL_INTERVAL
+    seen_last_contact: dict[str, int] = {}  # icao24 -> last seen epoch, for optional dedup
+
+    while True:
+        cycle_start = time.monotonic()
+        try:
+            df = fetch_states(session)
+            if df is None:
+                log.info("No states returned this cycle.")
+            else:
+                # Optional: drop rows we've already emitted with the same last_contact
+                new_mask = df.apply(
+                    lambda r: seen_last_contact.get(r["icao24"]) != r["last_contact"], axis=1
+                )
+                new_rows = df[new_mask]
+                for _, r in new_rows.iterrows():
+                    seen_last_contact[r["icao24"]] = r["last_contact"]
+
+                if not new_rows.empty:
+                    write_partition(new_rows)
+                    log.info(f"Wrote {len(new_rows)} new/updated rows.")
+                else:
+                    log.info("No new state changes since last cycle.")
+
+            backoff = POLL_INTERVAL  # reset on success
+
+        except requests.exceptions.RequestException as e:
+            log.warning(f"Fetch failed: {e}. Backing off to {backoff}s.")
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, MAX_BACKOFF)
+            continue
+
+        elapsed = time.monotonic() - cycle_start
+        await asyncio.sleep(max(0, POLL_INTERVAL - elapsed))
+
+
 if __name__ == "__main__":
-    # Run extraction
-    flight_df = extract_live_flights()
-
-    if flight_df is not None:
-        # Display sample data
-        print("\n--- First 5 Active Flights ---")
-        print(flight_df[["icao24", "callsign", "origin_country", "latitude", "longitude", "velocity"]].head())
-
-        # Save to CSV & Parquet with timestamped filenames
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        flight_df.to_csv(f"live_flights{timestamp}.csv", index=False)
-        flight_df.to_parquet(f'live_flights{timestamp}.parquet')
-        print(f"\nData successfully saved to 'live_flights{timestamp}.csv' and 'live_flights{timestamp}.parquet'.")
+    try:
+        asyncio.run(poll_loop())
+    except KeyboardInterrupt:
+        log.info("Shutting down.")
