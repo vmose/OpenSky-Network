@@ -1,7 +1,6 @@
 import os
 import requests
 import pandas as pd
-from datetime import datetime
 from datetime import datetime, timezone
 
 # 1. API Configuration
