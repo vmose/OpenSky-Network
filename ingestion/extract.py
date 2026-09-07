@@ -10,13 +10,14 @@ OPENSKY_PASSWORD = os.getenv("OPENSKY_PASSWORD", "")
 
 API_URL = "https://opensky-network.org/api/states/all"
 
-# Optional: Define a bounding box to filter flights by location (e.g., North America/US East Coast)
+# Optional: Define a bounding box to filter flights by location (e.g., Europe, Africa, Asia). If not set, all global flights will be fetched.   
+
 # Leave as None to fetch all active global flights (Warning: returns a massive payload)
 BOUNDING_BOX = {
-    "lamin": 24.396308,  # Minimum latitude
-    "lomin": -125.00000, # Minimum longitude
-    "lamax": 49.384358,  # Maximum latitude
-    "lomax": -66.93457   # Maximum longitude
+    "lamin": -35.0,   # Minimum latitude — southern Africa
+    "lomin": -20.0,   # Minimum longitude — western Africa/Atlantic
+    "lamax": 40.0,    # Maximum latitude — southern Europe / Central Asia
+    "lomax": 104.0    # Maximum longitude — Singapore / western Indonesia
 }
 
 def extract_live_flights():
