@@ -2,6 +2,7 @@ import os
 import requests
 import pandas as pd
 from datetime import datetime
+from datetime import datetime, timezone
 
 # 1. API Configuration
 # Anonymous access is heavily rate-limited. Register a free account at opensky-network.org
@@ -79,6 +80,13 @@ if __name__ == "__main__":
         print(flight_df[["icao24", "callsign", "origin_country", "latitude", "longitude", "velocity"]].head())
 
         # Save to CSV
-        output_file = "live_flights.csv"
+        utc_now = datetime.now(timezone.utc)
+        current_utc_time = utc_now.time()
+        output_file = "live_flights{utc_now}.csv"
         flight_df.to_csv(output_file, index=False)
+        flight_df.to_parquet('live_flights{utc_now}.parquet')
         print(f"\nData successfully saved to {output_file}")
+
+
+
+
