@@ -20,7 +20,7 @@ BOUNDING_BOX = {
 }
 
 # Respect OpenSky's published limits: 5s authenticated / 10s anonymous for a bbox query.
-POLL_INTERVAL = 5 if (OPENSKY_USER and OPENSKY_PASSWORD) else 300
+POLL_INTERVAL = 300 if (OPENSKY_USER and OPENSKY_PASSWORD) else 300
 MAX_BACKOFF = 1800
 
 COLUMNS = [
