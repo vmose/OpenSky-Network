@@ -20,8 +20,8 @@ BOUNDING_BOX = {
 }
 
 # Respect OpenSky's published limits: 5s authenticated / 10s anonymous for a bbox query.
-POLL_INTERVAL = 5 if (OPENSKY_USER and OPENSKY_PASSWORD) else 10
-MAX_BACKOFF = 60
+POLL_INTERVAL = 5 if (OPENSKY_USER and OPENSKY_PASSWORD) else 300
+MAX_BACKOFF = 1800
 
 COLUMNS = [
     "icao24", "callsign", "origin_country", "time_position", "last_contact",
@@ -105,4 +105,3 @@ if __name__ == "__main__":
         asyncio.run(poll_loop())
     except KeyboardInterrupt:
         log.info("Shutting down.") 
-        
