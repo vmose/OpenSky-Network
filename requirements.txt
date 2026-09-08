@@ -1,18 +1,5 @@
-# Orchestration
-apache-airflow==2.10.3
-
-# dbt Core & Adapters (Match the version to your database)
-dbt-core==1.8.7
-dbt-postgres==1.8.7
-
-# Airflow-dbt Integration
-astronomer-cosmos==1.6.0
-
-# Cloud Providers & Connectors (Uncomment what you need)
-# apache-airflow-providers-amazon==8.29.0
-# apache-airflow-providers-google==10.13.0
-# apache-airflow-providers-snowflake==5.7.0
-
-# Utilities
-python-dotenv==1.0.1
-pydantic==2.9.2
+requests
+pandas
+google-cloud-bigquery
+db-dtypes
+pyarrow
