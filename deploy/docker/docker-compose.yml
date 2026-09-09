@@ -1,0 +1,11 @@
+services:
+  opensky-ingest:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    restart: unless-stopped
+    env_file: ../../.env
+    volumes:
+      - ./service-account.json:/secrets/service-account.json:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/service-account.json
