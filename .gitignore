@@ -1,1 +1,31 @@
 live_flights_lake
+# Environment / secrets
+.env
+*.env
+service-account.json
+deploy/docker/service-account.json
+*.json.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+venv/
+.venv/
+env/
+
+# Local scratch / extraction output
+try_extract.py
+scratch/
+*.parquet
+*.csv
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
