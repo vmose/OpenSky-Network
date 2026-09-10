@@ -1,71 +1,37 @@
-# schema.py
+"""
+Single source of truth for the OpenSky state-vector shape, shared by
+extract.py (parsing) and load.py (BigQuery table + load jobs) so the two
+can't silently drift apart.
+"""
 
-OPENSKY_COLUMNS = [
-    "icao24",
-    "callsign",
-    "origin_country",
-    "time_position",
-    "last_contact",
-    "longitude",
-    "latitude",
-    "baro_altitude",
-    "on_ground",
-    "velocity",
-    "true_track",
-    "vertical_rate",
-    "sensors",
-    "geo_altitude",
-    "squawk",
-    "spi",
-    "position_source",
+from google.cloud import bigquery
+
+# Raw column order as returned by OpenSky's /states/all endpoint.
+COLUMNS = [
+    "icao24", "callsign", "origin_country", "time_position", "last_contact",
+    "longitude", "latitude", "baro_altitude", "on_ground", "velocity",
+    "true_track", "vertical_rate", "sensors", "geo_altitude", "squawk",
+    "spi", "position_source",
 ]
 
-
-COLUMN_DTYPES = {
-    "icao24": "string",
-    "callsign": "string",
-    "origin_country": "string",
-    "time_position": "datetime64[ns, UTC]",
-    "last_contact": "datetime64[ns, UTC]",
-    "longitude": "float64",
-    "latitude": "float64",
-    "baro_altitude": "float64",
-    "on_ground": "boolean",
-    "velocity": "float64",
-    "true_track": "float64",
-    "vertical_rate": "float64",
-    "sensors": "object",
-    "geo_altitude": "float64",
-    "squawk": "string",
-    "spi": "boolean",
-    "position_source": "Int64",
-}
-
-
-NULLABLE_COLUMNS = [
-    "callsign",
-    "baro_altitude",
-    "vertical_rate",
-    "sensors",
-    "geo_altitude",
-    "squawk",
+# BigQuery target schema. "sensors" is dropped in extract.py before load --
+# it's a rarely-populated REPEATED field, not worth the schema complexity.
+BQ_SCHEMA = [
+    bigquery.SchemaField("icao24", "STRING"),
+    bigquery.SchemaField("callsign", "STRING"),
+    bigquery.SchemaField("origin_country", "STRING"),
+    bigquery.SchemaField("time_position", "TIMESTAMP"),
+    bigquery.SchemaField("last_contact", "TIMESTAMP"),
+    bigquery.SchemaField("longitude", "FLOAT"),
+    bigquery.SchemaField("latitude", "FLOAT"),
+    bigquery.SchemaField("baro_altitude", "FLOAT"),
+    bigquery.SchemaField("on_ground", "BOOLEAN"),
+    bigquery.SchemaField("velocity", "FLOAT"),
+    bigquery.SchemaField("true_track", "FLOAT"),
+    bigquery.SchemaField("vertical_rate", "FLOAT"),
+    bigquery.SchemaField("geo_altitude", "FLOAT"),
+    bigquery.SchemaField("squawk", "STRING"),
+    bigquery.SchemaField("spi", "BOOLEAN"),
+    bigquery.SchemaField("position_source", "INTEGER"),
+    bigquery.SchemaField("ingested_at", "TIMESTAMP"),
 ]
-
-
-QUALITY_RULES = {
-    "latitude": {
-        "min": -90,
-        "max": 90,
-    },
-    "longitude": {
-        "min": -180,
-        "max": 180,
-    },
-    "true_track": {
-        "min": 0,
-        "max": 360,
-    },
-    "velocity": {
-        "min": 0,
-    },
-}

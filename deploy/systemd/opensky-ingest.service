@@ -1,0 +1,19 @@
+[Unit]
+Description=OpenSky -> BigQuery ingestion pipeline
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=opensky
+WorkingDirectory=/opt/opensky-pipeline
+EnvironmentFile=/opt/opensky-pipeline/.env
+ExecStart=/opt/opensky-pipeline/venv/bin/python -m ingestion.opensky.pipeline
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=opensky-ingest
+
+[Install]
+WantedBy=multi-user.target
