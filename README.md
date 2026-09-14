@@ -4,7 +4,7 @@ A lightweight, always-on ingestion pipeline that polls the [OpenSky
 Network](https://opensky-network.org/) `/states/all` endpoint for live
 flight state vectors over a fixed bounding box and loads them into
 BigQuery, without requiring a GCP billing account.
-Results can be seen displayed on this [Looker Dashboard](https://datastudio.google.com/u/0/reporting/72e30034-b435-4288-ae78-925352dc9551/page/tEnnC) (WIP)
+Results can be seen displayed on this [Looker Dashboard](https://datastudio.google.com/reporting/f30426f5-c914-43e8-af6f-2bc02b6aa612) (WIP)
 
 ## How it works
 
