@@ -51,8 +51,8 @@ jobs:
           BQ_PROJECT: ${{ secrets.BQ_PROJECT }}
           BQ_DATASET: opensky
           BQ_TABLE: live_flights
-          POLL_INTERVAL_SECONDS: 300
-          MAX_BACKOFF_SECONDS: 1800
+          POLL_INTERVAL_SECONDS: 1800
+          MAX_BACKOFF_SECONDS: 10800
           PARTITION_EXPIRATION_DAYS: 14
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: python -m ingestion.opensky.pipeline

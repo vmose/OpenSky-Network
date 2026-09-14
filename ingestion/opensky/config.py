@@ -30,8 +30,8 @@ BOUNDING_BOX = {
 # --- Poll / retry behavior ---------------------------------------------
 # 5 min default keeps steady-state BigQuery storage around ~3.2 GB with a
 # 14-day partition expiration -- comfortably under the 10 GB free tier.
-POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", 300))
-MAX_BACKOFF_SECONDS = int(os.getenv("MAX_BACKOFF_SECONDS", 1800))
+POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", 1800))
+MAX_BACKOFF_SECONDS = int(os.getenv("MAX_BACKOFF_SECONDS", 10800))
 
 # --- BigQuery sink -------------------------------------------------------
 BQ_PROJECT = os.getenv("BQ_PROJECT")  # None -> use ADC's default project
