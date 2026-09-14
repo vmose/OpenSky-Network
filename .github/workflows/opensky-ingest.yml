@@ -1,0 +1,58 @@
+name: OpenSky Ingest
+
+# NOTE: ingestion.opensky.pipeline runs an infinite poll loop by design
+# (see pipeline.py). GitHub Actions hard-kills any job at 6 hours
+# regardless of timeout-minutes, so this workflow can't keep one instance
+# running forever -- instead it restarts the loop just before Actions
+# would kill it anyway, so coverage stays effectively continuous.
+#
+# This is a stopgap, not the intended long-term home for this pipeline:
+# an always-on VM (systemd/Docker, see deploy/) runs the same code as a
+# genuinely persistent process with no restart gaps. Revisit if the
+# restart cadence below ever causes a noticeable coverage gap.
+
+on:
+  schedule:
+    # Every 6 hours -- just after the previous run's timeout expires,
+    # so the concurrency group below keeps exactly one instance alive
+    # at a time with minimal gap between runs.
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: opensky-ingest
+  cancel-in-progress: false  # never kill a healthy run to start another
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    # Just under Actions' 6-hour hard cap, leaving a safety margin so the
+    # process exits (and BigQuery load jobs in flight can finish) before
+    # Actions force-kills it.
+    timeout-minutes: 355
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write GCP service account key
+        run: echo '${{ secrets.GCP_SA_KEY }}' > "${RUNNER_TEMP}/sa.json"
+
+      - name: Run pipeline
+        env:
+          OPENSKY_USER: ${{ secrets.OPENSKY_USER }}
+          OPENSKY_PASSWORD: ${{ secrets.OPENSKY_PASSWORD }}
+          BQ_PROJECT: ${{ secrets.BQ_PROJECT }}
+          BQ_DATASET: opensky
+          BQ_TABLE: live_flights
+          POLL_INTERVAL_SECONDS: 300
+          MAX_BACKOFF_SECONDS: 1800
+          PARTITION_EXPIRATION_DAYS: 14
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: python -m ingestion.opensky.pipeline
