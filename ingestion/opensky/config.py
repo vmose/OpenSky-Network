@@ -18,15 +18,13 @@ OPENSKY_USER = os.getenv("OPENSKY_USER", "")
 OPENSKY_PASSWORD = os.getenv("OPENSKY_PASSWORD", "")
 API_URL = "https://opensky-network.org/api/states/all"
 
-# Bounding box: southern Africa/Atlantic -> southern Europe/Central Asia
-# -> Singapore/western Indonesia. Kept fixed per project requirements.
+# Bounding box: Reduced refresh rate to 1800 seconds to accomodate entire planet
 BOUNDING_BOX = {
-    "lamin": -35.0,
-    "lomin": -20.0,
-    "lamax": 40.0,
-    "lomax": 104.0,
+    "lamin": -90.0,
+    "lomin": -180.0,
+    "lamax": 90.0,
+    "lomax": 180.0,
 }
-
 # --- Poll / retry behavior ---------------------------------------------
 # 5 min default keeps steady-state BigQuery storage around ~3.2 GB with a
 # 14-day partition expiration -- comfortably under the 10 GB free tier.
