@@ -38,4 +38,4 @@ BQ_TABLE = os.getenv("BQ_TABLE", "live_flights")
 
 # Partitions older than this are auto-dropped by BigQuery, bounding
 # steady-state storage regardless of how long the process runs.
-PARTITION_EXPIRATION_DAYS = int(os.getenv("PARTITION_EXPIRATION_DAYS", 14))
+PARTITION_EXPIRATION_DAYS = int(os.getenv("PARTITION_EXPIRATION_DAYS", 7))
