@@ -5,6 +5,7 @@ swap or extend if you ever add a second destination.
 
 import logging
 import pandas as pd
+from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 
 from . import config
@@ -18,16 +19,32 @@ def ensure_table(client: bigquery.Client, table_ref: str) -> None:
     ingested_at, with expiration so old partitions are dropped
     automatically and steady-state storage stays bounded."""
     try:
-        client.get_table(table_ref)
+        table = client.get_table(table_ref)
+    except NotFound:
+        table = None  # table doesn't exist yet -> create it below
+
+    expiration_ms = config.PARTITION_EXPIRATION_DAYS * 24 * 60 * 60 * 1000
+
+    if table is not None:
+        # Partition expiration is only applied at creation time, so a table
+        # created earlier with a different (or no) expiration would silently
+        # keep growing. Re-sync it on every startup.
+        tp = table.time_partitioning
+        if tp is not None and tp.expiration_ms != expiration_ms:
+            tp.expiration_ms = expiration_ms
+            table.time_partitioning = tp
+            client.update_table(table, ["time_partitioning"])
+            log.info(
+                f"Updated {table_ref} partition expiration to "
+                f"{config.PARTITION_EXPIRATION_DAYS} days."
+            )
         return
-    except Exception:
-        pass  # table doesn't exist yet -> create it below
 
     table = bigquery.Table(table_ref, schema=BQ_SCHEMA)
     table.time_partitioning = bigquery.TimePartitioning(
         type_=bigquery.TimePartitioningType.DAY,
         field="ingested_at",
-        expiration_ms=config.PARTITION_EXPIRATION_DAYS * 24 * 60 * 60 * 1000,
+        expiration_ms=expiration_ms,
     )
     client.create_table(table)
     log.info(
